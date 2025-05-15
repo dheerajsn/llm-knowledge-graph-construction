@@ -139,7 +139,7 @@ MCP_REGISTRY = {
             "math": {
                 "command": "python",
                 # Make sure to update to the full absolute path to your math_server.py file
-                "args": ["mcp_math_server.py", "--transport", "stdio"],
+                "args": ["llm-knowledge-graph/chatbot/mcp_math_server.py", "--transport", "stdio"],
                 "transport": "stdio",
             },
         }
