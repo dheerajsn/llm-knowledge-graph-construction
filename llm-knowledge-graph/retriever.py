@@ -3,20 +3,32 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_openai import OpenAIEmbeddings
 from langchain_neo4j import Neo4jGraph, Neo4jVector
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.retrieval import create_retrieval_chain
 from langchain_core.prompts import ChatPromptTemplate
+from chatbot.llm import JinaEmbeddings
+from transformers import AutoModel
 
 llm = ChatOpenAI(
     openai_api_key=os.getenv('OPENAI_API_KEY'), 
     temperature=0
 )
 
-embedding_provider = OpenAIEmbeddings(
+llm = ChatAnthropic(
+            model="claude-3-7-sonnet-latest",
+            temperature=0,
+        )
+
+'''embedding_provider = OpenAIEmbeddings(
     openai_api_key=os.getenv('OPENAI_API_KEY')
-    )
+    )'''
+
+embedding_model = AutoModel.from_pretrained('jinaai/jina-embeddings-v2-base-en', trust_remote_code=True)
+# Wrap it with the adapter class
+embedding_provider = JinaEmbeddings(embedding_model)
 
 graph = Neo4jGraph(
     url=os.getenv('NEO4J_URI'),

@@ -1,32 +1,17 @@
 import os
-
-from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
+from langchain_community.document_loaders.wikipedia import WikipediaLoader
+import logging
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
 from langchain_neo4j import Neo4jGraph
-from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
 from langchain_anthropic import ChatAnthropic
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_community.graphs.graph_document import Node, Relationship
 from transformers import AutoModel
 
-from dotenv import load_dotenv
-load_dotenv()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-DOCS_PATH = "llm-knowledge-graph/data/course/pdfs"
-
-'''
-llm = ChatOpenAI(
-    openai_api_key=os.getenv('OPENAI_API_KEY'), 
-    model_name="gpt-3.5-turbo"
-)
-'''
-
-llm = ChatGroq(
-    model="llama-3.1-8b-instant",
-    temperature=0
-)
 
 llm = ChatAnthropic(
             model="claude-3-7-sonnet-latest",
@@ -45,9 +30,19 @@ doc_transformer = LLMGraphTransformer(
     llm=llm,
     )
 
-# Load and split the documents
-loader = DirectoryLoader(DOCS_PATH, glob="**/llm-fundamentals_4*.pdf", loader_cls=PyPDFLoader)
+# Set up the graph transformer
+doc_transformer = LLMGraphTransformer(
+    llm=llm,
+)
 
+# Load Wikipedia article on Interest Rate Swaps
+logger.info("Loading Wikipedia article on Interest Rate Swaps")
+loader = WikipediaLoader(
+    query="Interest rate swap",
+    load_max_docs=1,  # Just load the main article
+    lang="en",
+    doc_content_chars_max=100000,  # Adjust if needed to get full article
+)
 text_splitter = CharacterTextSplitter(
     separator="\n\n",
     chunk_size=1500,
@@ -57,21 +52,23 @@ text_splitter = CharacterTextSplitter(
 docs = loader.load()
 chunks = text_splitter.split_documents(docs)
 
-for chunk in chunks:
+for i, chunk in enumerate(chunks):
 
-    filename = os.path.basename(chunk.metadata["source"])
-    chunk_id = f"{filename}.{chunk.metadata["page"]}"
+    chunk_id = f"interest_rate_swap.{i+1}"
     print("Processing -", chunk_id)
+    chunk.metadata["topic"] = "Finance"
+    chunk.metadata["concept"] = "Interest Rate Swap"
+    chunk.metadata["source"] = "Wikipedia"
 
     # Embed the chunk
     chunk_embedding = embedding_provider.encode(chunk.page_content)
 
     # Add the Document and Chunk nodes to the graph
     properties = {
-        "filename": filename,
+        "filename": "Wikipedia_Finance_Interest_Rate_Swap",
         "chunk_id": chunk_id,
         "text": chunk.page_content,
-        "embedding": chunk_embedding
+        "embedding": chunk_embedding.tolist(),  # Convert to list for Neo4j storage
     }
     
     graph.query("""

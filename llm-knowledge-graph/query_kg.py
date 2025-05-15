@@ -2,14 +2,28 @@ import os
 from langchain_openai import ChatOpenAI
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain.prompts import PromptTemplate
+from langchain_groq import ChatGroq
+from langchain_anthropic import ChatAnthropic
 
 from dotenv import load_dotenv
 load_dotenv()
-
+'''
 llm = ChatOpenAI(
     openai_api_key=os.getenv('OPENAI_API_KEY'), 
     temperature=0
 )
+'''
+'''
+llm = ChatGroq(
+    model="llama-3.1-8b-instant",
+    temperature=0
+)
+'''
+
+llm = ChatAnthropic(
+            model="claude-3-7-sonnet-latest",
+            temperature=0,
+        )
 
 graph = Neo4jGraph(
     url=os.getenv('NEO4J_URI'),
