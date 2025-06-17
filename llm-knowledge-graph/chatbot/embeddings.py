@@ -1,48 +1,62 @@
 from llama_index.core.embeddings import BaseEmbedding
 from langchain_localai import LocalAIEmbeddings
-from typing import List
+from typing import List, Any, Optional
+import asyncio
 
 class LocalAIEmbeddingWrapper(BaseEmbedding):
-    def __init__(self, localai_embedding):
-        self.localai_embedding = localai_embedding
-        super().__init__()
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8080/v1",
+        model: str = "text-embedding-ada-002", 
+        api_key: str = "not-needed",
+        embed_batch_size: int = 10,
+        **kwargs: Any
+    ):
+        self._embedding_model = LocalAIEmbeddings(
+            base_url=base_url,
+            model=model,
+            api_key=api_key
+        )
+        
+        super().__init__(
+            model_name=model,
+            embed_batch_size=embed_batch_size,
+            **kwargs
+        )
+    
+    @classmethod 
+    def class_name(cls) -> str:
+        return "LocalAIEmbedding"
     
     def _get_query_embedding(self, query: str) -> List[float]:
-        """Get embedding for a single query."""
-        return self.localai_embedding.embed_query(query)
+        return self._embedding_model.embed_query(query)
     
     def _get_text_embedding(self, text: str) -> List[float]:
-        """Get embedding for a single text."""
-        return self.localai_embedding.embed_query(text)
+        return self._embedding_model.embed_query(text)
     
     def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Get embeddings for multiple texts."""
-        return self.localai_embedding.embed_documents(texts)
+        return self._embedding_model.embed_documents(texts)
     
     async def _aget_query_embedding(self, query: str) -> List[float]:
-        """Async version of _get_query_embedding."""
-        return self._get_query_embedding(query)
+        # Run in thread pool for true async behavior
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._get_query_embedding, query)
     
     async def _aget_text_embedding(self, text: str) -> List[float]:
-        """Async version of _get_text_embedding."""
-        return self._get_text_embedding(text)
+        loop = asyncio.get_event_loop() 
+        return await loop.run_in_executor(None, self._get_text_embedding, text)
     
+    async def _aget_text_embeddings(self, texts: List[str]) -> List[List[float]]:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._get_text_embeddings, texts)
 
-from langchain_localai import LocalAIEmbeddings
-from llama_index.core import Settings
 
-# Configure LocalAI embeddings
-localai_embeddings = LocalAIEmbeddings(
-    base_url="http://localhost:8080/v1",  # Your LocalAI server URL
-    model="text-embedding-ada-002",      # Your embedding model name
-    api_key="not-needed"                 # LocalAI typically doesn't need real API key
+# Test compatibility
+wrapper = LocalAIEmbeddingWrapper(
+    base_url="http://localhost:8080/v1",
+    model="your-model-name"
 )
 
-# Wrap for LlamaIndex compatibility
-wrapped_embeddings = LocalAIEmbeddingWrapper(localai_embeddings)
-
-# Set as your embed_model
-embed_model = wrapped_embeddings
-
 # Or set globally
-Settings.embed_model = wrapped_embeddings
+from llama_index.core import Settings
+Settings.embed_model = wrapper
